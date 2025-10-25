@@ -2,6 +2,8 @@ param(
     [switch]$Debug
 )
 
+$ProgressPreference = 'SilentlyContinue'
+
 Set-StrictMode -Version Latest
 
 $BaseRawUrl = 'https://raw.githubusercontent.com/KingKDot/FoxyJumpScare/main/FoxyJumpScare/assets'
@@ -32,7 +34,6 @@ function Download-Assets {
     foreach ($f in $frames) {
         $url = "$BaseRawUrl/frames/$f"
         try {
-            if ($Debug) { Write-Host "Downloading $f..." }
             $bytes = (Invoke-WebRequest -Uri $url -UseBasicParsing -ErrorAction Stop).Content
             $frameData += @{ name = $f; bytes = $bytes }
         } catch {
@@ -44,7 +45,6 @@ function Download-Assets {
     $wavUrl = "$BaseRawUrl/jumpscare.wav"
     $wavBytes = $null
     try {
-        if ($Debug) { Write-Host "Downloading jumpscare.wav..." }
         $wavBytes = (Invoke-WebRequest -Uri $wavUrl -UseBasicParsing -ErrorAction Stop).Content
     } catch {
         Write-Error "Failed to download $wavUrl : $_"
