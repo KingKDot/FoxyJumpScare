@@ -23,21 +23,21 @@ jobs:
       - name: Build Project
         run: msbuild FoxyJumpScare.sln /p:Configuration=Release
 
-      - name: Prepare Build Output
+      - name: Find Built Executable
+        id: find_exe
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path "./build_output" -Force
-          Copy-Item -Path "./FoxyJumpScare/bin/Release/*" -Destination "./build_output/" -Recurse -Force
+          $exe = Get-ChildItem -Path "./FoxyJumpScare/bin/Release" -Filter "*.exe" -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "No .exe file found in build output." }
+          echo "EXE_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
+          echo "EXE_NAME=$($exe.Name)" >> $env:GITHUB_ENV
+          Write-Host "Found executable: $($exe.FullName)"
 
-      - name: Create ZIP Archive
-        shell: pwsh
-        run: Compress-Archive -Path "./build_output/*" -DestinationPath "FoxyJumpScare-AutoBuild.zip"
-
-      - name: Upload Artifact
+      - name: Upload Executable Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FoxyJumpScare-AutoBuild
-          path: FoxyJumpScare-AutoBuild.zip
+          path: ${{ env.EXE_PATH }}
 
       - name: Delete Existing Release (if exists)
         env:
@@ -46,12 +46,12 @@ jobs:
         run: |
           gh release delete AutoBuild --yes --cleanup-tag || echo "No existing AutoBuild release found"
 
-      - name: Create Release
+      - name: Create Release with EXE
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          gh release create AutoBuild FoxyJumpScare-AutoBuild.zip \
+          gh release create AutoBuild "${{ env.EXE_PATH }}" \
             -t "AutoBuild" \
             -n "Automated FoxyJumpScare build (latest push to main)" \
             --draft=false \
