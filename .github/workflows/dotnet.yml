@@ -1,0 +1,58 @@
+name: FoxyJumpScare Auto Build
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Framework
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet Packages
+        run: nuget restore FoxyJumpScare.sln
+
+      - name: Build Project
+        run: msbuild FoxyJumpScare.sln /p:Configuration=Release
+
+      - name: Prepare Build Output
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "./build_output" -Force
+          Copy-Item -Path "./FoxyJumpScare/bin/Release/*" -Destination "./build_output/" -Recurse -Force
+
+      - name: Create ZIP Archive
+        shell: pwsh
+        run: Compress-Archive -Path "./build_output/*" -DestinationPath "FoxyJumpScare-AutoBuild.zip"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoxyJumpScare-AutoBuild
+          path: FoxyJumpScare-AutoBuild.zip
+
+      - name: Delete Existing Release (if exists)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release delete AutoBuild --yes --cleanup-tag || echo "No existing AutoBuild release found"
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release create AutoBuild FoxyJumpScare-AutoBuild.zip \
+            -t "AutoBuild" \
+            -n "Automated FoxyJumpScare build (latest push to main)" \
+            --draft=false \
+            --prerelease=false
